@@ -39,7 +39,7 @@ definitions:
             --no-push
             --tarPath image.tar
             --destination foo:1
-          - /np asset push --type docker-image --source image.tar --build-id "$(cat /tmp/np_build_id)"
+          - /np asset push --type docker-image --source image.tar --build-id "$(cat /tmp/np_build_id)" --repository "$REPOSITORY_URL"
           - /np build update --id "$(cat /tmp/np_build_id)" --status=successful
         after-script:
           # Bitbucket has no `if: always()` and no `when: on_failure`.
