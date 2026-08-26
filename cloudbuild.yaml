@@ -5,9 +5,11 @@
 #
 # The only secret is NULLPLATFORM_API_KEY. Unlike Bitbucket Pipelines and
 # CircleCI, Cloud Build has no per-repository secret store — this template
-# expects a Secret Manager secret named "NULLPLATFORM_API_KEY" in the same
-# GCP project as the build. Rename it below (and in availableSecrets) if
-# your project hosts triggers for multiple apps and needs one secret per app.
+# expects a Secret Manager secret named "$REPO_NAME-nullplatform-api-key" in
+# the same GCP project as the build (Cloud Build resolves $REPO_NAME here
+# too, same as in the step below). Per-repo naming, not a single shared
+# "NULLPLATFORM_API_KEY" secret, because one GCP project commonly hosts
+# triggers for many apps' repos.
 #
 # Assumes a Bitbucket Cloud repository connected via a Cloud Build (2nd-gen)
 # trigger with:
@@ -16,7 +18,7 @@
 #   - a user-managed service_account — the classic default Cloud Build SA
 #     (PROJECT_NUMBER@cloudbuild.gserviceaccount.com) is rejected for
 #     Connections-API (2nd-gen) triggers — granted roles/secretmanager.secretAccessor
-#     on the NULLPLATFORM_API_KEY secret
+#     on this repo's $REPO_NAME-nullplatform-api-key secret
 #
 # $REPO_FULL_NAME / $BRANCH_NAME / $COMMIT_SHA below are real Cloud Build
 # substitutions: they're text-replaced with actual values before the step
@@ -81,7 +83,7 @@ steps:
 
 availableSecrets:
   secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/NULLPLATFORM_API_KEY/versions/latest
+    - versionName: projects/$PROJECT_ID/secrets/$REPO_NAME-nullplatform-api-key/versions/latest
       env: 'NULLPLATFORM_API_KEY'
 
 options:
