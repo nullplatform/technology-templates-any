@@ -1,0 +1,82 @@
+# nullplatform CI for GitLab CI.
+#
+# Contract:  np build start  ->  build the image  ->  np asset push  ->  np build update
+# There is no deploy step here: nullplatform triggers deployments itself.
+#
+# The only secret is NULLPLATFORM_API_KEY, read from the project's CI/CD
+# variables. Unlike Bitbucket, `np` infers --repository/--branch/--commit-sha
+# from GitLab's predefined variables, so no flags are passed.
+#
+# RUNNER_TAG selects the runner, as in every nullplatform GitLab template: set
+# it as a CI/CD variable to a tag of the runner that should run these jobs.
+#
+# ECR with an IAM role: build-finalize requests a GitLab ID token for
+# sts.amazonaws.com and exposes it through AWS_WEB_IDENTITY_TOKEN_FILE, which
+# `np asset push` exchanges for the role configured in the asset repository
+# provider. The role's trust policy must allow GitLab's OIDC provider for this
+# project. With access keys in the provider, or a Docker registry, the token is
+# simply not used.
+
+default:
+  tags:
+    - ${RUNNER_TAG}
+  image: alpine:latest
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+.setup-np-cli: &setup-np-cli
+  - apk add curl
+  - curl https://cli.nullplatform.com/install.sh | sh
+  - source /root/.bashrc
+
+build-start:
+  stage: build
+  before_script:
+    - *setup-np-cli
+  script:
+    - np build start
+
+build-image:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    # kaniko requires a --destination even with --no-push; `foo` is a throwaway.
+    - /kaniko/executor
+      --context $CI_PROJECT_DIR
+      --dockerfile $CI_PROJECT_DIR/Dockerfile
+      --no-push
+      --destination foo
+      --tar-path image.tar
+  artifacts:
+    paths:
+      - image.tar
+
+build-finalize:
+  stage: build
+  needs:
+    - build-start
+    - build-image
+  id_tokens:
+    AWS_ID_TOKEN:
+      aud: sts.amazonaws.com
+  before_script:
+    - *setup-np-cli
+    - apk add crane
+    # Do not set AWS_ROLE_ARN: the CLI takes the role from the provider.
+    - echo "$AWS_ID_TOKEN" > /tmp/aws-web-identity-token
+    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws-web-identity-token
+  script:
+    - np asset push --type docker-image --source image.tar
+    - np build update --status successful
+
+build-failed:
+  stage: .post
+  before_script:
+    - *setup-np-cli
+  script:
+    - np build update --status=failed
+  when: on_failure
