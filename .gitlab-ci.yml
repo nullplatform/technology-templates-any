@@ -7,8 +7,10 @@
 # variables. Unlike Bitbucket, `np` infers --repository/--branch/--commit-sha
 # from GitLab's predefined variables, so no flags are passed.
 #
-# RUNNER_TAG selects the runner, as in every nullplatform GitLab template: set
-# it as a CI/CD variable to a tag of the runner that should run these jobs.
+# RUNNER_TAG selects the runner, as in every nullplatform GitLab template. It
+# defaults to GitLab.com's shared Linux runners; on a self-managed instance, or
+# to use your own runners, set it as a project or group CI/CD variable, which
+# takes precedence over the default below.
 #
 # ECR with an IAM role: build-finalize requests a GitLab ID token for
 # sts.amazonaws.com and exposes it through AWS_WEB_IDENTITY_TOKEN_FILE, which
@@ -16,6 +18,9 @@
 # provider. The role's trust policy must allow GitLab's OIDC provider for this
 # project. With access keys in the provider, or a Docker registry, the token is
 # simply not used.
+
+variables:
+  RUNNER_TAG: saas-linux-small-amd64
 
 default:
   tags:
